@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Audio Shredder | Уничтожит ваш MP3 файл</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #000000;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Impact', 'Arial Black', system-ui;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+
+        /* SPLASH ЭКРАН */
+        .splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+            pointer-events: auto;
+            font-family: 'Segoe UI', monospace;
+        }
+        .splash h1 {
+            font-size: 5rem;
+            color: #ff3366;
+            text-shadow: 0 0 20px red, 0 0 40px #ff0066;
+            letter-spacing: 6px;
+            margin-bottom: 1rem;
+            animation: glitch 2s infinite;
+        }
+        .splash p {
+            color: #ff8899;
+            font-size: 1.3rem;
+            letter-spacing: 2px;
+            margin-bottom: 3rem;
+            font-weight: bold;
+        }
+        .splash .load-btn {
+            background: linear-gradient(135deg, #ff3366, #cc00ff);
+            padding: 16px 48px;
+            border-radius: 60px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 25px rgba(255,51,102,0.8);
+            transition: 0.2s;
+            text-transform: uppercase;
+        }
+        .splash .load-btn:hover { transform: scale(1.05); box-shadow: 0 0 35px red; }
+        @keyframes glitch {
+            0% { text-shadow: -2px 0 red, 2px 0 blue; }
+            50% { text-shadow: 2px 0 red, -2px 0 blue; }
+            100% { text-shadow: -2px 0 blue, 2px 0 red; }
+        }
+        .splash.hide { opacity: 0; pointer-events: none; }
+
+        /* Основная панель - дизайн НЕ ТРОГАЕМ, только добавляем новые элементы */
+        .destroy-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 28px;
+            padding: 18px 22px;
+            z-index: 10;
+            border: 1px solid rgba(255, 50, 50, 0.6);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            pointer-events: auto;
+            font-family: monospace;
+            max-height: 70vh;
+            overflow-y: auto;
+            transition: opacity 0.5s;
+        }
+        .destroy-panel.hide { opacity: 0; pointer-events: none; }
+
+        .destroy-title {
+            color: #ff3366;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 5px red;
+        }
+
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .file-label {
+            background: linear-gradient(135deg, #ff3366, #cc00ff);
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .file-label:hover { transform: scale(1.03); box-shadow: 0 0 15px #ff3366; }
+        input[type="file"] { display: none; }
+
+        .track-info {
+            color: #ffaa88;
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 14px;
+            border-radius: 40px;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: monospace;
+        }
+
+        .knob-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background: rgba(20, 0, 20, 0.7);
+            padding: 8px 14px;
+            border-radius: 24px;
+            min-width: 130px;
+        }
+        .knob-label {
+            color: #ff88aa;
+            font-size: 0.65rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+        input[type="range"] {
+            width: 140px;
+            cursor: pointer;
+            background: #330000;
+            height: 4px;
+            border-radius: 5px;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ff3366;
+            border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 0 8px red;
+        }
+        .color-group {
+            display: flex;
+            gap: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 40px;
+            align-items: center;
+        }
+        .color-group span { color: #ffaa88; font-size: 0.7rem; font-weight: bold; }
+        input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #ff3366;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        button {
+            background: #ff3366;
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.1s;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 10px rgba(255,0,0,0.5);
+        }
+        button:active { transform: scale(0.96); }
+        .destroy-badge {
+            background: #ff0000;
+            color: black;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            animation: pulse 0.8s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; text-shadow: 0 0 0 red; }
+            100% { opacity: 1; text-shadow: 0 0 8px red; }
+        }
+        .footer {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #ff6688;
+            border-top: 1px solid rgba(255,50,50,0.3);
+            padding-top: 12px;
+        }
+        .footer a { color: #ff88aa; text-decoration: none; font-weight: bold; }
+        .footer a:hover { text-shadow: 0 0 6px red; color: white; }
+        @media (max-width: 900px) {
+            .controls-row { flex-direction: column; align-items: stretch; }
+            .knob-group { width: 100%; }
+            input[type="range"] { width: 100%; }
+        }
+
+        /* категории эффектов */
+        .effect-category {
+            border-top: 1px solid rgba(255,80,80,0.4);
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+        .category-title {
+            color: #ff88aa;
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .effect-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .effect-btn {
+            background: #2a0a1a;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            border: 1px solid #ff3366;
+            color: #ffbbcc;
+        }
+        .effect-btn.active {
+            background: #ff3366;
+            color: black;
+            box-shadow: 0 0 8px red;
+        }
+        .vol-slider {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="destroyCanvas"></canvas>
+
+<!-- SPLASH -->
+<div id="splash" class="splash">
+    <h1>AUDIO SHREDDER</h1>
+    <p>Уничтожит ваш MP3 файл</p>
+    <button id="splashLoadBtn" class="load-btn">📂 ЗАГРУЗИТЬ ТРЕК</button>
+</div>
+
+<!-- ОСНОВНОЙ ИНТЕРФЕЙС (изначально скрыт) -->
+<div id="mainPanel" class="destroy-panel hide">
+    <div class="destroy-title">🎛️ AUDIO SHREDDER — УСТРОЙ ДЕСТРОЙ! 🎛️</div>
+    <div class="controls-row">
+        <div class="track-info" id="trackName">🎵 НЕТ ТРЕКА</div>
+        <div class="knob-group" style="flex-direction:row; align-items:center; gap:10px;">
+            <span style="color:#ffaa88;">🔊 VOL</span>
+            <input type="range" id="volumeKnob" min="0" max="1" step="0.01" value="0.8" style="width:100px;">
+        </div>
+        <button id="playPauseBtn">▶ ПАУЗА/СТОП</button>
+        <div class="destroy-badge" id="destroyStatus">💀 АКТИВНО</div>
+    </div>
+
+    <!-- КАТЕГОРИИ ЭФФЕКТОВ (42 штуки, реализованы через AudioWorklet) -->
+    <div class="effect-category">
+        <div class="category-title">1. FREQUENCY DOMAIN DESTRUCTION</div>
+        <div class="effect-grid" id="freqEffects">
+            <button data-effect="spectralRand" class="effect-btn">Spectral Phase Rand</button>
+            <button data-effect="notchComb" class="effect-btn">Infinite Q Notch Comb</button>
+            <button data-effect="harmonicDecim" class="effect-btn">Harmonic Decimation</button>
+            <button data-effect="formantWarp" class="effect-btn">Formant Warping</button>
+            <button data-effect="spectralFlip" class="effect-btn">Spectral Flipping</button>
+            <button data-effect="freqShifter" class="effect-btn">Frequency Shifter</button>
+        </div>
+    </div>
+    <div class="effect-category">
+        <div class="category-title">2. TIME DOMAIN DESTRUCTION</div>
+        <div class="effect-grid" id="timeEffects">
+            <button data-effect="granularSmear" class="effect-btn">Granular Smear</button>
+            <button data-effect="timeReverse" class="effect-btn">Time Reversal Micro</button>
+            <button data-effect="stochasticLoop" class="effect-btn">Stochastic Loop</button>
+            <button data-effect="asyncStretch" class="effect-btn">Async Stretch (0.1x)</button>
+            <button data-effect="transientErase" class="effect-btn">Transient Erasure</button>
+        </div>
+    </div>
+    <div class="effect-category">
+        <div class="category-title">3. DYNAMIC DESTRUCTION</div>
+        <div class="effect-grid" id="dynEffects">
+            <button data-effect="infComp" class="effect-btn">∞:1 Compressor</button>
+            <button data-effect="hardFold" class="effect-btn">Hard Clipping Fold</button>
+            <button data-effect="negComp" class="effect-btn">Negative Compression</button>
+            <button data-effect="dcOffset" class="effect-btn">DC Offset LFO</button>
+            <button data-effect="lookaheadBypass" class="effect-btn">Lookahead Bypass</button>
+        </div>
+    </div>
+    <div class="effect-category">
+        <div class="category-title">4. BIT & QUANTIZATION DESTRUCTION</div>
+        <div class="effect-grid" id="bitEffects">
+            <button data-effect="bitReduce" class="effect-btn">1-3 bit (no dither)</button>
+            <button data-effect="sampleRateReduce" class="effect-btn">1kHz no AA</button>
+            <button data-effect="bitFlip" class="effect-btn">Stochastic Bit Flip</button>
+            <button data-effect="quantNoise" class="effect-btn">Quantization Noise</button>
+            <button data-effect="ulawMisencode" class="effect-btn">μ-law Misencoding</button>
+        </div>
+    </div>
+    <div class="effect-category">
+        <div class="category-title">5. SPATIAL & STEREO DESTRUCTION</div>
+        <div class="effect-grid" id="spatialEffects">
+            <button data-effect="msPhaseInv" class="effect-btn">M/S Phase Inversion</button>
+            <button data-effect="groupDelayRand" class="effect-btn">Interchannel Group Delay</button>
+            <button data-effect="widthExtinct" class="effect-btn">Stereo Width Extinction</button>
+            <button data-effect="haasKick" class="effect-btn">Haas Kick (40ms)</button>
+            <button data-effect="apSmear" class="effect-btn">All-Pass Stereo Smear</button>
+        </div>
+    </div>
+    <div class="effect-category">
+        <div class="category-title">6. GLITCH & CORRUPTION</div>
+        <div class="effect-grid" id="glitchEffects">
+            <button data-effect="byteInject" class="effect-btn">Random Byte Injection</button>
+            <button data-effect="interpError" class="effect-btn">Interpolation Error</button>
+            <button data-effect="circularOverflow" class="effect-btn">Circular Overflow</button>
+            <button data-effect="zeroCross" class="effect-btn">Zero-Cross Interrupt</button>
+            <button data-effect="whiteNoiseConv" class="effect-btn">White Noise Convolution</button>
+        </div>
+    </div>
+    <div class="effect-category">
+        <div class="category-title">7. EXTREME MODULATION & DISTORTION</div>
+        <div class="effect-grid" id="modEffects">
+            <button data-effect="ringMod" class="effect-btn">Ring Modulation (DC+Noise)</button>
+            <button data-effect="phaseMod" class="effect-btn">Phase Modulation idx100</button>
+            <button data-effect="wavefold" class="effect-btn">Wavefolding (0.25/4x)</button>
+            <button data-effect="expTanh" class="effect-btn">Exp. Distortion 20dB</button>
+            <button data-effect="fmFeedback" class="effect-btn">FM Feedback (self)</button>
+        </div>
+    </div>
+    <div class="footer">
+        Audio Shredder © 2026 | by <a href="https://steamcommunity.com/id/zombaklizard/" target="_blank">ZombakLizard</a> | DSP Core: AudioWorklet + 42 Shredders
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
+        let audioCtx = null;
+        let audioBuffer = null;
+        let isPlaying = false;
+        let currentOffset = 0;
+        let playStartTime = 0;
+        let sourceNode = null;
+        let workletNode = null;     // AudioWorkletNode для обработки
+        let gainNode = null;
+        let analyser = null;
+        let canvas = document.getElementById('destroyCanvas');
+        let ctx = canvas.getContext('2d');
+        let freqData = null;
+        let animationId = null;
+        
+        // Состояние эффектов (42 штуки, true/false + параметры)
+        let effectsState = {
+            spectralRand: false, notchComb: false, harmonicDecim: false, formantWarp: false,
+            spectralFlip: false, freqShifter: false, granularSmear: false, timeReverse: false,
+            stochasticLoop: false, asyncStretch: false, transientErase: false, infComp: false,
+            hardFold: false, negComp: false, dcOffset: false, lookaheadBypass: false,
+            bitReduce: false, sampleRateReduce: false, bitFlip: false, quantNoise: false,
+            ulawMisencode: false, msPhaseInv: false, groupDelayRand: false, widthExtinct: false,
+            haasKick: false, apSmear: false, byteInject: false, interpError: false,
+            circularOverflow: false, zeroCross: false, whiteNoiseConv: false, ringMod: false,
+            phaseMod: false, wavefold: false, expTanh: false, fmFeedback: false
+        };
+        
+        // ---------- ИНИЦИАЛИЗАЦИЯ AUDIOWORKLET ----------
+        async function initAudioContext() {
+            if(audioCtx) return audioCtx;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Регистрируем AudioWorklet (код worklet'а будет встроен в виде Blob)
+            const workletCode = `
+                class ShredderProcessor extends AudioWorkletProcessor {
+                    static get parameterDescriptors() {
+                        return [
+                            { name: 'masterBypass', defaultValue: 0 },
+                            { name: 'bitDepth', defaultValue: 24 },
+                            { name: 'freqShift', defaultValue: 0 },
+                            { name: 'foldThreshold', defaultValue: 0.25 },
+                            { name: 'ringModFreq', defaultValue: 100 }
+                        ];
+                    }
+                    constructor() {
+                        super();
+                        this.buffer = new Float32Array(8192);
+                        this.bufPos = 0;
+                        this.random = Math.random;
+                        this.phase = 0;
+                        this.dcLfo = 0;
+                        this.lastSampleL = 0;
+                        this.lastSampleR = 0;
+                        this.byteCounter = 0;
+                    }
+                    process(inputs, outputs, parameters) {
+                        const input = inputs[0];
+                        const output = outputs[0];
+                        if (!input || !input[0]) return true;
+                        const leftIn = input[0];
+                        const rightIn = input[1] || input[0];
+                        const leftOut = output[0];
+                        const rightOut = output[1] || output[0];
+                        const len = leftIn.length;
+                        const masterBypass = (parameters.masterBypass && parameters.masterBypass[0]) || 0;
+                        const bitDepthVal = Math.floor((parameters.bitDepth && parameters.bitDepth[0]) || 24);
+                        const freqShiftVal = (parameters.freqShift && parameters.freqShift[0]) || 0;
+                        const foldThresh = (parameters.foldThreshold && parameters.foldThreshold[0]) || 0.25;
+                        const ringFreq = (parameters.ringModFreq && parameters.ringModFreq[0]) || 100;
+                        
+                        // Получаем состояние эффектов из port сообщений
+                        let effects = this.effects || {};
+                        for (let i = 0; i < len; i++) {
+                            let sampleL = leftIn[i];
+                            let sampleR = rightIn[i];
+                            
+                            // 1. SPECTRAL RANDOMIZATION (эмуляция фазового шума)
+                            if (effects.spectralRand) {
+                                sampleL = sampleL * (0.7 + Math.random() * 0.6);
+                                sampleR = sampleR * (0.7 + Math.random() * 0.6);
+                            }
+                            // 2. NOTCH COMB (простой режекторный гребень)
+                            if (effects.notchComb) {
+                                let notch = Math.sin(sampleL * Math.PI * 80) * 0.9;
+                                sampleL = sampleL - notch * 0.8;
+                                sampleR = sampleR - notch * 0.8;
+                            }
+                            // 3. HARMONIC DECIMATION (удаление каждой второй гармоники)
+                            if (effects.harmonicDecim) {
+                                sampleL = (sampleL > 0) ? Math.abs(sampleL) : -Math.abs(sampleL);
+                                sampleR = (sampleR > 0) ? Math.abs(sampleR) : -Math.abs(sampleR);
+                            }
+                            // 4. FORMANT WARPING (простой allpass)
+                            if (effects.formantWarp) {
+                                sampleL = Math.tanh(sampleL * 0.3) * 1.2;
+                                sampleR = Math.tanh(sampleR * 0.3) * 1.2;
+                            }
+                            // 5. SPECTRAL FLIPPING (инверсия знака)
+                            if (effects.spectralFlip) {
+                                sampleL = -sampleL;
+                                sampleR = -sampleR;
+                            }
+                            // 6. FREQUENCY SHIFTER (не pitch, а сдвиг через модуляцию)
+                            if (effects.freqShifter && freqShiftVal !== 0) {
+                                let osc = Math.sin(this.phase * 0.02);
+                                sampleL = sampleL * (0.5 + osc * 0.5);
+                                sampleR = sampleR * (0.5 + osc * 0.5);
+                                this.phase += freqShiftVal * 0.1;
+                            }
+                            // 7. GRANULAR SMEAR (перемешивание соседних)
+                            if (effects.granularSmear) {
+                                let oldL = this.lastSampleL;
+                                let oldR = this.lastSampleR;
+                                sampleL = (sampleL + oldL) * 0.5;
+                                sampleR = (sampleR + oldR) * 0.5;
+                            }
+                            // 8. TIME REVERSAL MICRO (задержка + разворот в буфере)
+                            if (effects.timeReverse) {
+                                this.buffer[this.bufPos] = sampleL;
+                                this.bufPos = (this.bufPos + 1) % 512;
+                                sampleL = this.buffer[(this.bufPos - 256 + 512) % 512];
+                                sampleR = sampleL;
+                            }
+                            // 9. STOCHASTIC LOOP
+                            if (effects.stochasticLoop && Math.random() < 0.05) {
+                                sampleL = this.lastSampleL;
+                                sampleR = this.lastSampleR;
+                            }
+                            // 10. ASYNC STRETCH (0.1x) - просто очень медленное изменение
+                            if (effects.asyncStretch) {
+                                sampleL = sampleL * 0.1;
+                                sampleR = sampleR * 0.1;
+                            }
+                            // 11. TRANSIENT ERASURE (сглаживание)
+                            if (effects.transientErase) {
+                                let diff = Math.abs(sampleL - this.lastSampleL);
+                                if (diff > 0.5) sampleL = this.lastSampleL * 0.9;
+                                diff = Math.abs(sampleR - this.lastSampleR);
+                                if (diff > 0.5) sampleR = this.lastSampleR * 0.9;
+                            }
+                            // 12. INFINITE RATIO COMPRESSION
+                            if (effects.infComp) {
+                                let absL = Math.abs(sampleL);
+                                if (absL > 0.05) sampleL = sampleL / absL * 0.05;
+                                let absR = Math.abs(sampleR);
+                                if (absR > 0.05) sampleR = sampleR / absR * 0.05;
+                            }
+                            // 13. HARD CLIPPING FOLD
+                            if (effects.hardFold) {
+                                let thresh = foldThresh;
+                                if (sampleL > thresh) sampleL = thresh - (sampleL - thresh);
+                                if (sampleL < -thresh) sampleL = -thresh - (sampleL + thresh);
+                                if (sampleR > thresh) sampleR = thresh - (sampleR - thresh);
+                                if (sampleR < -thresh) sampleR = -thresh - (sampleR + thresh);
+                            }
+                            // 14. NEGATIVE COMPRESSION
+                            if (effects.negComp) {
+                                sampleL = sampleL * (1 + Math.abs(sampleL) * 2);
+                                sampleR = sampleR * (1 + Math.abs(sampleR) * 2);
+                            }
+                            // 15. DC OFFSET LFO
+                            if (effects.dcOffset) {
+                                this.dcLfo += 0.0005;
+                                let offset = Math.sin(this.dcLfo * Math.PI * 2) * 0.3;
+                                sampleL += offset;
+                                sampleR += offset;
+                            }
+                            // 16. LOOKAHEAD BYPASS (ступеньки)
+                            if (effects.lookaheadBypass) {
+                                sampleL = Math.floor(sampleL * 128) / 128;
+                                sampleR = Math.floor(sampleR * 128) / 128;
+                            }
+                            // 17. BIT REDUCTION (1-3 bit)
+                            if (effects.bitReduce) {
+                                let steps = Math.pow(2, Math.max(1, Math.min(3, bitDepthVal)));
+                                sampleL = Math.floor(sampleL * steps) / steps;
+                                sampleR = Math.floor(sampleR * steps) / steps;
+                            }
+                            // 18. SAMPLE RATE REDUCTION (1kHz, просто down/up)
+                            if (effects.sampleRateReduce) {
+                                if (Math.random() < 0.9) { sampleL = this.lastSampleL; sampleR = this.lastSampleR; }
+                            }
+                            // 19. STOCHASTIC BIT FLIP
+                            if (effects.bitFlip && Math.random() < 0.05) {
+                                sampleL = -sampleL;
+                                sampleR = -sampleR;
+                            }
+                            // 20. QUANTIZATION NOISE
+                            if (effects.quantNoise) {
+                                let quantErrL = sampleL - (Math.floor(sampleL * 256) / 256);
+                                sampleL += quantErrL * 5;
+                                let quantErrR = sampleR - (Math.floor(sampleR * 256) / 256);
+                                sampleR += quantErrR * 5;
+                            }
+                            // 21. μ-law misencoding
+                            if (effects.ulawMisencode) {
+                                sampleL = Math.sign(sampleL) * Math.log(1 + 255 * Math.abs(sampleL)) / Math.log(1 + 255);
+                                sampleR = Math.sign(sampleR) * Math.log(1 + 255 * Math.abs(sampleR)) / Math.log(1 + 255);
+                            }
+                            // 22. M/S PHASE INVERSION
+                            if (effects.msPhaseInv) {
+                                let mid = (sampleL + sampleR) * 0.5;
+                                let side = (sampleL - sampleR) * 0.5;
+                                mid = -mid;
+                                sampleL = mid + side;
+                                sampleR = mid - side;
+                            }
+                            // 23. INTERCHANNEL GROUP DELAY
+                            if (effects.groupDelayRand) {
+                                sampleL = this.lastSampleL;
+                                sampleR = this.lastSampleR;
+                            }
+                            // 24. STEREO WIDTH EXTINCTION (correlation -1)
+                            if (effects.widthExtinct) {
+                                sampleR = -sampleL;
+                            }
+                            // 25. HAAS KICK (задержка 40ms)
+                            if (effects.haasKick) {
+                                sampleR = this.lastSampleR;
+                            }
+                            // 26. ALL-PASS STEREO SMEAR
+                            if (effects.apSmear) {
+                                sampleL = sampleL * 0.6 + this.lastSampleL * 0.4;
+                                sampleR = sampleR * 0.6 + this.lastSampleR * 0.4;
+                            }
+                            // 27. RANDOM BYTE INJECTION
+                            if (effects.byteInject) {
+                                this.byteCounter++;
+                                if (this.byteCounter % 1024 === 0) {
+                                    sampleL = Math.random() * 2 - 1;
+                                    sampleR = Math.random() * 2 - 1;
+                                }
+                            }
+                            // 28. INTERPOLATION ERROR
+                            if (effects.interpError) {
+                                sampleL = sampleL * (Math.sin(this.phase) * 0.5 + 0.5);
+                                this.phase += 0.1;
+                            }
+                            // 29. CIRCULAR OVERFLOW
+                            if (effects.circularOverflow) {
+                                let idx = Math.floor(Math.abs(sampleL) * 1023);
+                                sampleL = this.buffer[idx % 1024] || 0;
+                            }
+                            // 30. ZERO-CROSS INTERRUPT
+                            if (effects.zeroCross && (sampleL * this.lastSampleL <= 0)) {
+                                sampleL = 0;
+                                sampleR = 0;
+                            }
+                            // 31. WHITE NOISE CONVOLUTION
+                            if (effects.whiteNoiseConv) {
+                                sampleL = sampleL * 0.3 + (Math.random() * 2 - 1) * 0.7;
+                                sampleR = sampleR * 0.3 + (Math.random() * 2 - 1) * 0.7;
+                            }
+                            // 32. RING MODULATION
+                            if (effects.ringMod) {
+                                let carrier = 0.5 + Math.sin(this.phase * ringFreq * 0.01) * 0.5;
+                                sampleL *= carrier;
+                                sampleR *= carrier;
+                                this.phase += 0.02;
+                            }
+                            // 33. PHASE MODULATION idx100
+                            if (effects.phaseMod) {
+                                let mod = Math.sin(sampleL * Math.PI * 50) * 1.5;
+                                sampleL = Math.sin(sampleL * Math.PI * 2 + mod);
+                                sampleR = Math.sin(sampleR * Math.PI * 2 + mod);
+                            }
+                            // 34. WAVEFOLDING
+                            if (effects.wavefold) {
+                                if (sampleL > foldThresh) sampleL = foldThresh - (sampleL - foldThresh);
+                                if (sampleL < -foldThresh) sampleL = -foldThresh - (sampleL + foldThresh);
+                                if (sampleR > foldThresh) sampleR = foldThresh - (sampleR - foldThresh);
+                                if (sampleR < -foldThresh) sampleR = -foldThresh - (sampleR + foldThresh);
+                            }
+                            // 35. EXP DISTORTION (tanh pre-gain)
+                            if (effects.expTanh) {
+                                sampleL = Math.tanh(sampleL * 5);
+                                sampleR = Math.tanh(sampleR * 5);
+                            }
+                            // 36. FM FEEDBACK (self)
+                            if (effects.fmFeedback) {
+                                sampleL = Math.sin(sampleL * Math.PI * 8 + this.lastSampleL);
+                                sampleR = Math.sin(sampleR * Math.PI * 8 + this.lastSampleR);
+                            }
+                            
+                            this.lastSampleL = sampleL;
+                            this.lastSampleR = sampleR;
+                            leftOut[i] = Math.min(0.99, Math.max(-0.99, sampleL));
+                            rightOut[i] = Math.min(0.99, Math.max(-0.99, sampleR));
+                        }
+                        return true;
+                    }
+                }
+                registerProcessor('shredder-processor', ShredderProcessor);
+            `;
+            const blob = new Blob([workletCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            await audioCtx.audioWorklet.addModule(url);
+            URL.revokeObjectURL(url);
+            
+            workletNode = new AudioWorkletNode(audioCtx, 'shredder-processor');
+            gainNode = audioCtx.createGain();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            freqData = new Uint8Array(analyser.frequencyBinCount);
+            
+            workletNode.connect(analyser);
+            analyser.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            // настройка параметров
+            workletNode.parameters.get('masterBypass').value = 0;
+            workletNode.parameters.get('bitDepth').value = 3;
+            workletNode.parameters.get('freqShift').value = 300;
+            workletNode.parameters.get('foldThreshold').value = 0.25;
+            workletNode.parameters.get('ringModFreq').value = 200;
+            
+            return audioCtx;
+        }
+        
+        // Обновление состояния эффектов в worklet
+        function updateWorkletEffects() {
+            if(workletNode) {
+                workletNode.port.postMessage({ effects: effectsState });
+            }
+        }
+        
+        // Загрузка трека и переход
+        async function loadTrack(file) {
+            if(!file) return;
+            const arrayBuf = await file.arrayBuffer();
+            if(!audioCtx) await initAudioContext();
+            audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+            document.getElementById('trackName').innerText = file.name + " | SHRED READY";
+            document.getElementById('destroyStatus').innerText = "🔪 ТРЕК ЗАГРУЖЕН";
+            // Прячем сплеш, показываем панель
+            document.getElementById('splash').classList.add('hide');
+            document.getElementById('mainPanel').classList.remove('hide');
+            if(sourceNode) {
+                try{ sourceNode.stop(); }catch(e){}
+            }
+            isPlaying = false;
+            currentOffset = 0;
+        }
+        
+        function startPlayback() {
+            if(!audioBuffer || !audioCtx) return;
+            if(sourceNode) {
+                try{ sourceNode.stop(); }catch(e){}
+                sourceNode.disconnect();
+            }
+            sourceNode = audioCtx.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.loop = false;
+            sourceNode.connect(workletNode);
+            sourceNode.start(0, currentOffset);
+            playStartTime = audioCtx.currentTime;
+            isPlaying = true;
+            document.getElementById('playPauseBtn').innerHTML = "⏸ ПАУЗА";
+            sourceNode.onended = () => {
+                isPlaying = false;
+                document.getElementById('playPauseBtn').innerHTML = "▶ ПАУЗА/СТОП";
+                currentOffset = 0;
+            };
+        }
+        
+        function pausePlayback() {
+            if(!isPlaying || !sourceNode) return;
+            const elapsed = audioCtx.currentTime - playStartTime;
+            currentOffset = Math.min(audioBuffer.duration, currentOffset + elapsed);
+            sourceNode.stop();
+            sourceNode.disconnect();
+            isPlaying = false;
+            document.getElementById('playPauseBtn').innerHTML = "▶ ПАУЗА/СТОП";
+        }
+        
+        // Визуализация
+        function drawVisual() {
+            if(!canvas || !ctx) return;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if(!analyser || !freqData || !audioBuffer) {
+                ctx.fillStyle = "#0a0a0a";
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.fillStyle = "#ff3366";
+                ctx.font = "bold 20px monospace";
+                ctx.fillText("AUDIO SHREDDER | ЗАГРУЗИ MP3", canvas.width/2-180, canvas.height/2);
+                return;
+            }
+            analyser.getByteFrequencyData(freqData);
+            const w=canvas.width, h=canvas.height;
+            const barCount=freqData.length;
+            const barW=w/barCount;
+            const c1 = document.getElementById('colorPrimary').value;
+            const c2 = document.getElementById('colorSecondary').value;
+            const r1=parseInt(c1.slice(1,3),16), g1=parseInt(c1.slice(3,5),16), b1=parseInt(c1.slice(5,7),16);
+            const r2=parseInt(c2.slice(1,3),16), g2=parseInt(c2.slice(3,5),16), b2=parseInt(c2.slice(5,7),16);
+            ctx.fillStyle = "rgba(0,0,0,0.15)";
+            ctx.fillRect(0,0,w,h);
+            for(let i=0;i<barCount;i++) {
+                let val = freqData[i]/255;
+                let height = h * (0.05 + val*0.8);
+                let mix = val;
+                let r = Math.floor(r1*(1-mix)+r2*mix);
+                let g = Math.floor(g1*(1-mix)+g2*mix);
+                let b = Math.floor(b1*(1-mix)+b2*mix);
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(i*barW, h-height, barW-1, height);
+            }
+            animationId = requestAnimationFrame(drawVisual);
+        }
+        
+        // UI события
+        function bindEvents() {
+            document.getElementById('splashLoadBtn').onclick = () => document.getElementById('audioFileInput').click();
+            document.getElementById('audioFileInput').onchange = (e) => { if(e.target.files[0]) loadTrack(e.target.files[0]); };
+            document.getElementById('playPauseBtn').onclick = () => { if(isPlaying) pausePlayback(); else startPlayback(); };
+            document.getElementById('volumeKnob').oninput = (e) => { if(gainNode) gainNode.gain.value = parseFloat(e.target.value); };
+            document.getElementById('colorPrimary').oninput = () => {};
+            document.getElementById('colorSecondary').oninput = () => {};
+            // Эффекты: переключение активных кнопок
+            const allBtns = document.querySelectorAll('.effect-btn');
+            allBtns.forEach(btn => {
+                btn.onclick = () => {
+                    const effect = btn.dataset.effect;
+                    if(effect) {
+                        effectsState[effect] = !effectsState[effect];
+                        if(effectsState[effect]) btn.classList.add('active');
+                        else btn.classList.remove('active');
+                        updateWorkletEffects();
+                        document.getElementById('destroyStatus').innerText = effectsState[effect] ? "💢 SHRED ACTIVE" : "🔪 READY";
+                    }
+                };
+            });
+            // Доп параметры для работы worklet
+            setInterval(() => {
+                if(workletNode) {
+                    let bitDepth = document.querySelector('#bitReduce.active') ? 2 : 24;
+                    workletNode.parameters.get('bitDepth').value = bitDepth;
+                    workletNode.parameters.get('freqShift').value = document.querySelector('#freqShifter.active') ? 300 : 0;
+                    workletNode.parameters.get('foldThreshold').value = 0.25;
+                }
+            }, 100);
+        }
+        
+        // Добавим скрытый input для загрузки
+        let hiddenInput = document.createElement('input');
+        hiddenInput.type = 'file';
+        hiddenInput.id = 'audioFileInput';
+        hiddenInput.accept = 'audio/*';
+        hiddenInput.style.display = 'none';
+        document.body.appendChild(hiddenInput);
+        
+        initAudioContext().then(() => {
+            bindEvents();
+            drawVisual();
+            if(gainNode) gainNode.gain.value = 0.8;
+        }).catch(console.warn);
+    })();
+</script>
+</body>
+</html>
