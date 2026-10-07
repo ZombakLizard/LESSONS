@@ -66,13 +66,47 @@ body{
 
 .content{
     display:flex;
+    flex-direction:row;
+    align-items:center;
+    gap:30px;
+}
+
+.controls{
+    display:flex;
     flex-direction:column;
     align-items:center;
+    position: relative;
+    left: 20px;
+}
+
+.yota {
+    width: 200px;
+    height: auto;
+    opacity: 0;
+}
+
+.yota.good{
+    opacity:1;
+}
+
+.yota.bad{
+    opacity:1;
+}
+
+.yota.verybad{
+    opacity:1;
+}
+
+.yota.top1{
+    opacity:1;
+}
+
+.yota.zero{
+    opacity:0;
 }
 
 
-
-p{
+p {
     font-size:25px;
     margin:120px;
     transition:.5s;
@@ -238,7 +272,7 @@ p:hover{
 }
 .vv {
     margin-top: 800px;
-    margin-left: 50px;;
+    margin-left: 50px;
 }
 
 .black {
@@ -270,4 +304,3 @@ p:hover{
     position: relative;
     top: 1000px;
 }
-

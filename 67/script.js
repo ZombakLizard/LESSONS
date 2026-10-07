@@ -51,3 +51,39 @@ function ChangeColor() {
     console.log('eto rabotaet')
 }
 
+let fanta = document.querySelector('.fanta')
+
+let yota = document.querySelector('.yota')
+
+function ChangeText() {
+    fanta.textContent = "coca cola"
+    yota.classList.remove('bad', 'verybad', 'top1', 'zero')
+    yota.src = "image/cocacola.jpg"
+    yota.classList.add('good')
+}
+
+function ChangeText2() {
+    fanta.textContent = "черноголовка cola"
+    yota.src = "image/cernogolovka.jpg"
+    yota.classList.add('bad')
+}
+
+function ChangeText3() {
+    fanta.textContent = "fantola blue"
+    yota.classList.remove('good', 'bad', 'top1', 'zero')
+    yota.src = "image/fantolablue.jpg"
+    yota.classList.add('verybad')
+}
+
+function ChangeText4() {
+    fanta.textContent = "soda water"
+    yota.classList.remove('good', 'bad', 'verybad', 'zero')
+    yota.src = "image/sodawater.jpg"
+    yota.classList.add('top1')
+}
+
+function ChangeText5() {
+    fanta.textContent = "нулевой пациент"
+    yota.classList.remove('good', 'bad', 'top1', 'verybad')
+    yota.classList.add('zero')
+}
