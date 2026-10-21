@@ -309,11 +309,19 @@ p:hover{
 
 .swiper {
   width: 600px;
-  height: 300px;
+  height: 700px;
 }
 
 .swiper-slide {
     padding: 100px 0;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.swiper-slide img {
+    object-fit: cover;
 }
 
 .swiper-slide:nth-of-type(1) {
@@ -331,3 +339,12 @@ p:hover{
     font-size: 30px;
 }
 
+.igor2 {
+    position: relative;
+    top: 700px;
+}
+
+.minus {
+    position: relative;
+    top: 1200px;
+}

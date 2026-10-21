@@ -119,6 +119,7 @@ const swiper = new Swiper('.swiper', {
 
   loop: true,
 
+  effect: "cube",
   pagination: {
     el: '.swiper-pagination',
   },
