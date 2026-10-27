@@ -309,18 +309,20 @@ p:hover{
 
 .swiper {
   width: 600px;
-  height: 700px;
+  /* height: 700px; */
 }
 
 .swiper-slide {
-    padding: 100px 0;
+    padding: 200px 20px;
     display: flex !important;
+    flex-direction: column
+    ;
     justify-content: center;
     align-items: center;
 }
 
-
 .swiper-slide img {
+    height: 200px;
     object-fit: cover;
 }
 
